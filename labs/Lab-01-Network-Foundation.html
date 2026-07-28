@@ -100,20 +100,6 @@
 <hr />
 <h2>2. Topology</h2>
 <p>A single isolated lab network with no bridge to the physical home LAN (deliberate — later labs run scans and exploits that must stay contained). pfSense sits between a NAT-based "WAN" (for internet access and updates) and a host-only "LAN" where lab hosts live.</p>
-<pre><code>                 +-------------+
-   Internet ---&gt; |  pfSense    |  WAN: em0 -&gt; NAT (DHCP: 10.0.2.15)
-                 |  gateway    |  LAN: em1 -&gt; 10.10.10.1/24
-                 +------+------+
-                        | host-only network
-                        | &quot;VirtualBox Host-Only Ethernet Adapter&quot; (10.10.10.0/24)
-                 +------+-------+
-                 | Ubuntu Server|  enp0s3 -&gt; 10.10.10.20/24
-                 |  (lab host)  |  gateway 10.10.10.1
-                 +--------------+
-
-   Windows host also sits on the host-only network at 10.10.10.2,
-   used to reach the pfSense web GUI at https://10.10.10.1
-</code></pre>
 <h3>IP scheme</h3>
 <table>
 <thead>
