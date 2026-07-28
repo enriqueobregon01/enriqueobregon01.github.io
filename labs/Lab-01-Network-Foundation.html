@@ -96,10 +96,10 @@
 </table>
 <hr />
 <h2>1. Objective</h2>
-<p>Stand up the foundation the rest of the lab series builds on: a firewall-gated internal network with a host behind it. The goal was to demonstrate deliberate network design — a hand-planned IP scheme rather than DHCP-and-hope — and to prove every layer works: the host reaches its gateway, routes to the internet through the firewall, and resolves names via DNS. Segmentation is a foundational security control, so establishing it correctly here sets up the detection and defense labs that follow.</p>
+<p>Stand up the foundation the rest of the lab series builds on: a firewall-gated internal network with a host behind it. The goal was to demonstrate deliberate network design — a hand-planned IP scheme rather than DHCP-and-hope — and to prove every layer works: the host reaches its gateway, routes to the internet through the firewall, and resolves names via DNS. </p>
 <hr />
 <h2>2. Topology</h2>
-<p>A single isolated lab network with no bridge to the physical home LAN (deliberate — later labs run scans and exploits that must stay contained). pfSense sits between a NAT-based "WAN" (for internet access and updates) and a host-only "LAN" where lab hosts live.</p>
+<p>A single isolated lab network with no bridge to the physical home LAN (later labs run scans and exploits that must stay contained). pfSense sits between a NAT-based "WAN" (for internet access and updates) and a host-only "LAN" where lab hosts live.</p>
 <h3>IP scheme</h3>
 <table>
 <thead>
@@ -149,7 +149,7 @@
 </tr>
 </tbody>
 </table>
-<p>Addresses were spaced (<code>.20</code>, <code>.30</code>, <code>.40</code>) to keep the scheme readable and leave room — a habit that mirrors real network documentation.</p>
+<p>Addresses were spaced (<code>.20</code>, <code>.30</code>, <code>.40</code>) to keep the scheme readable and leave room.</p>
 <img src="evidence/topology.drawio.png" alt="Lab 01 network topology" style="max-width:100%;border:1px solid #243141; border-radius:8px;margin:16px 0">
 <hr />
 <h2>3. Build Steps</h2>
@@ -158,13 +158,13 @@
 <h3>3.2 pfSense gateway VM</h3>
 <ul>
 <li>Two adapters: <strong>Adapter 1 = NAT</strong> (becomes WAN), <strong>Adapter 2 = Host-only</strong> (becomes LAN).</li>
-<li>Installed via the Netgate net-installer (see Troubleshooting #2).</li>
+<li>Installed via the Netgate net-installer.</li>
 <li>Assigned interfaces at the console: <strong>WAN = em0</strong>, <strong>LAN = em1</strong>, matching adapter MACs.</li>
 <li>Set LAN to <code>10.10.10.1/24</code> during install.</li>
 <li>Filesystem: ZFS (stripe, single disk), GPT partition scheme.</li>
 </ul>
 <h3>3.3 Ubuntu Server host — static IP via Netplan</h3>
-<p><code>/etc/netplan/50-cloud-init.yaml</code>:</p>
+<p><code>/etc/netplan/00-cloud-init.yaml</code>:</p>
 <pre><code class="language-yaml">network:
   version: 2
   ethernets:
@@ -182,7 +182,7 @@
 <pre><code class="language-bash">sudo netplan apply
 </code></pre>
 <h3>3.4 pfSense DNS</h3>
-<p>Ran the setup wizard, set upstream DNS to <code>8.8.8.8</code> / <code>1.1.1.1</code>, enabled the DNS Resolver in <strong>forwarding mode</strong> with DNSSEC disabled (see Troubleshooting #6).</p>
+<p>Ran the setup wizard, set upstream DNS to <code>8.8.8.8</code> / <code>1.1.1.1</code>, enabled the DNS Resolver in <strong>forwarding mode</strong> with DNSSEC disabled.</p>
 <hr />
 <h2>4. Verification</h2>
 <p>From the Ubuntu host:</p>
@@ -193,36 +193,31 @@ ping -c 4 8.8.8.8        # internet -&gt; 0% loss, ttl 62 (decremented, proving 
 ping -c 4 google.com     # DNS -&gt; resolves and replies
 </code></pre>
 <p>The TTL dropping from 64 to 62 on the <code>8.8.8.8</code> replies is direct evidence the traffic is routing <em>through</em> the pfSense gateway (each hop decrements TTL), not taking some shortcut.</p>
-<blockquote>
-<p><strong>[Insert: <code>evidence/ubuntu-ip.png</code>, <code>evidence/ping-success.png</code>, <code>evidence/pfsense-console.png</code>]</strong></p>
-</blockquote>
+<img src="evidence/pfsense-console.png" alt="pfSense console showing WAN and LAN interface assignments" style="max-width:100%;border:1px solid #243141;border-radius:8px;margin:16px 0;display:block">
+<img src="evidence/ubuntu-ip.png" alt="Ubuntu ip addr and ip route output showing static IP" style="max-width:100%;border:1px solid #243141;border-radius:8px;margin:16px 0;display:block">
+<img src="evidence/ping-success.png" alt="Successful pings to gateway, internet, and DNS resolution" style="max-width:100%;border:1px solid #243141;border-radius:8px;margin:16px 0;display:block">
 <hr />
 <h2>5. Troubleshooting</h2>
 <p>This lab surfaced a realistic string of failures. Each is documented with symptom -&gt; diagnosis -&gt; fix.</p>
 <p><strong>1. pfSense VM would not boot — "No bootable option or device was found."</strong>
 Symptom: UEFI/BdsDxe errors on first boot. Diagnosis: the VM was attempting UEFI boot and the optical drive was not first in the boot order. Fix: in System -&gt; Motherboard, disabled EFI (legacy BIOS boot) and moved Optical to the top of the boot order. The net-installer is more reliable under legacy BIOS in VirtualBox.</p>
-<p><strong>2. Unexpected installer filename — <code>netgate-installer-v1.2</code> instead of <code>pfSense-CE-2.7.2.iso</code>.</strong>
-Symptom: the downloaded file did not match the classic pfSense CE ISO name. Diagnosis: verified that Netgate now distributes pfSense CE via a net-installer that downloads the pfSense packages over the internet at install time, rather than as a single large ISO. Fix: confirmed it was legitimate, kept the NAT/WAN adapter so the installer could reach Netgate's servers, and chose "Install CE" (not Plus) when prompted.</p>
-<p><strong>3. Installer reboot loop.</strong>
+<p><strong>2. Installer reboot loop.</strong>
 Symptom: after install completed and the VM rebooted, it booted straight back into the installer. Diagnosis: the installation ISO was still mounted in the virtual optical drive, so the VM booted from CD again. Fix: ejected the ISO via Devices -&gt; Optical Drives -&gt; Remove disk, then reset — the VM then booted from disk into pfSense.</p>
-<p><strong>4. Ubuntu auto-install failed — "Username is reserved by the system: admin."</strong>
+<p><strong>3. Ubuntu auto-install failed — "Username is reserved by the system: admin."</strong>
 Symptom: the Ubuntu VM dropped to an error shell during install. Diagnosis: VirtualBox's unattended-installation feature had triggered and auto-filled the reserved username <code>admin</code>, which Ubuntu rejects. Fix: recreated the VM and left the ISO unattached during the New VM wizard (attaching it afterward via Settings -&gt; Storage), which prevented VirtualBox from launching unattended install and let the manual installer run.</p>
-<p><strong>5. No connectivity — "Destination Host Unreachable" from the host itself.</strong>
+<p><strong>4. No connectivity — "Destination Host Unreachable" from the host itself.</strong>
 Symptom: pings to the gateway failed with the host reporting unreachable from its own address; the host had also pulled a <code>10.0.2.15</code> address. Diagnosis: <code>ip link</code> showed a single interface, and the <code>10.0.2.15</code> address is a VirtualBox NAT-range signature — impossible on a host-only network. The Ubuntu VM's Adapter 1 had been left on <strong>NAT</strong> instead of host-only, so it was on the wrong virtual switch and could not reach pfSense at layer 2. Fix: powered off the VM, switched Adapter 1 to Host-only, rebooted. Pings to the gateway and internet then succeeded. (Also confirmed the golden rule: the pfSense VM must be running for anything to route — it <em>is</em> the gateway.)</p>
-<p><strong>6. DNS timed out despite correct settings — the Save-vs-Apply catch.</strong>
-Symptom: routing worked (<code>ping 8.8.8.8</code> succeeded) but name resolution failed; <code>dig @10.10.10.1</code> and even <code>host google.com 127.0.0.1</code> <em>on pfSense itself</em> timed out. Diagnosis: worked methodically — confirmed unbound was listening on <code>*:53</code> (<code>sockstat -4 -l | grep :53</code>), confirmed LAN firewall rules allowed the traffic, then found that local resolution failed too, isolating the problem to unbound's configuration rather than the client or network. Root cause: DNS Resolver settings had been changed in the GUI but never <strong>applied</strong> — pfSense requires both <strong>Save</strong> <em>and</em> clicking the <strong>Apply Changes</strong> banner for changes to go live. Fix: re-entered the settings (forwarding mode on, DNSSEC off, upstream DNS <code>8.8.8.8</code>/<code>1.1.1.1</code>), saved, and clicked Apply. Resolution worked immediately.</p>
 <hr />
 <h2>6. What I Learned</h2>
 <ul>
 <li>A default route sends all off-subnet traffic to the gateway; without pfSense running, a host on the LAN can reach nothing beyond its own segment.</li>
 <li>The VirtualBox NAT range (<code>10.0.2.x</code>) is a reliable fingerprint — seeing it on a supposedly host-only interface immediately flags a misattached adapter.</li>
-<li>TTL decrement is concrete, verifiable proof that traffic is passing through a router/firewall hop.</li>
+<li>TTL decrement is verifiable proof that traffic is passing through a router/firewall hop.</li>
 <li>"Service is listening" (<code>sockstat</code> shows <code>*:53</code>) does not mean "service is working" — unbound was bound correctly yet still failing, because its config was never applied.</li>
-<li>In pfSense, configuration is a two-step commit: <strong>Save</strong> writes the form, <strong>Apply Changes</strong> makes it live. Skipping the second step produces settings that look correct but have no effect — a subtle failure mode worth internalizing.</li>
 </ul>
 <hr />
 <h2>7. Security Relevance</h2>
-<p>Network segmentation is one of the highest-leverage defensive controls an analyst works with: it limits lateral movement, contains a breach to a blast radius, and creates chokepoints where traffic can be inspected. By placing a firewall between the host and everything else on day one, this lab establishes the exact structure the later labs use to detect and contain a simulated intrusion — the same defense-in-depth pattern used in enterprise networks. The troubleshooting also reinforced a security-relevant habit: verifying that a control is not just <em>configured</em> but <em>actually in effect</em>, since a rule that was saved-but-not-applied is functionally the same as no rule at all.</p>
+<p>Network segmentation is one of the highest-leverage defensive controls an analyst works with: it limits lateral movement, contains a breach to a blast radius, and creates chokepoints where traffic can be inspected. By placing a firewall between the host and everything else on day one, this lab establishes the exact structure the later labs use to detect and contain a simulated intrusion — the same defense-in-depth pattern used in enterprise networks.</p>
 </div>
 </body>
 </html>
